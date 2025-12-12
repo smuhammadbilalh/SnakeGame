@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<mopups:PopupPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                  xmlns:mopups="clr-namespace:Mopups.Pages;assembly=Mopups"
+                  x:Class="SnakeGame.Views.SelectionPopup"
+                  BackgroundColor="#80000000">
+
+    <mopups:PopupPage.Resources>
+        <Color x:Key="Surface">#1E293B</Color>
+        <Color x:Key="Primary">#10B981</Color>
+        <Color x:Key="OnSurface">#F1F5F9</Color>
+        <Color x:Key="OnSurfaceVariant">#94A3B8</Color>
+    </mopups:PopupPage.Resources>
+
+    <Border VerticalOptions="Center"
+            Margin="24"
+            BackgroundColor="{StaticResource Surface}"
+            StrokeThickness="0">
+        <Border.StrokeShape>
+            <RoundRectangle CornerRadius="24" />
+        </Border.StrokeShape>
+
+        <Grid RowDefinitions="Auto,*" RowSpacing="0">
+
+            <!-- Header -->
+            <Grid Grid.Row="0"
+                  Padding="24,20"
+                  ColumnDefinitions="*,Auto"
+                  BackgroundColor="#334155">
+                <Label Grid.Column="0"
+                       x:Name="TitleLabel"
+                       Text="Select Option"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource OnSurface}"
+                       VerticalOptions="Center" />
+
+                <ImageButton Grid.Column="1"
+                             Clicked="OnCloseClicked"
+                             WidthRequest="32"
+                             HeightRequest="32"
+                             BackgroundColor="Transparent"
+                             VerticalOptions="Center">
+                    <ImageButton.Source>
+                        <FontImageSource FontFamily="MaterialRegular"
+                                       Glyph="&#xe5cd;"
+                                       Color="{StaticResource OnSurfaceVariant}"
+                                       Size="24" />
+                    </ImageButton.Source>
+                </ImageButton>
+            </Grid>
+
+            <!-- Options List -->
+            <CollectionView Grid.Row="1"
+                            x:Name="OptionsCollection"
+                            SelectionMode="Single"
+                            SelectionChanged="OnOptionSelected"
+                            MaximumHeightRequest="400">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="20,16"
+                                BackgroundColor="Transparent"
+                                StrokeThickness="0">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="16">
+                                <Image Grid.Column="0"
+                                       WidthRequest="24"
+                                       HeightRequest="24"
+                                       VerticalOptions="Center">
+                                    <Image.Source>
+                                        <FontImageSource FontFamily="MaterialRegular"
+                                                       Glyph="{Binding IconGlyph}"
+                                                       Color="{StaticResource Primary}"
+                                                       Size="24" />
+                                    </Image.Source>
+                                </Image>
+                                <Label Grid.Column="1"
+                                       Text="{Binding Text}"
+                                       FontSize="16"
+                                       TextColor="{StaticResource OnSurface}"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+    </Border>
+
+</mopups:PopupPage>
