@@ -32,59 +32,71 @@ public partial class GamePage : ContentPage
 
         GameCanvas.SizeChanged += OnCanvasSizeChanged;
 
-        // Add keyboard support for Windows desktop
+        // Setup keyboard handling
         SetupKeyboardHandling();
     }
 
     private void SetupKeyboardHandling()
     {
-        // Only setup keyboard for Windows desktop platform
 #if WINDOWS
-        if (DeviceInfo.Current.Platform == DevicePlatform.WinUI)
-        {
-            Microsoft.Maui.Handlers.PageHandler.Mapper.AppendToMapping("KeyboardHandler", (handler, view) =>
-            {
-                if (view is GamePage)
-                {
-                    handler.PlatformView.PreviewKeyDown += (s, e) =>
-                    {
-                        var key = e.Key;
-                        Direction? newDirection = key switch
-                        {
-                            Windows.System.VirtualKey.Left or Windows.System.VirtualKey.A => Direction.Left,
-                            Windows.System.VirtualKey.Right or Windows.System.VirtualKey.D => Direction.Right,
-                            Windows.System.VirtualKey.Up or Windows.System.VirtualKey.W => Direction.Up,
-                            Windows.System.VirtualKey.Down or Windows.System.VirtualKey.S => Direction.Down,
-                            _ => null
-                        };
-
-                        if (newDirection.HasValue && _gameEngine != null && 
-                            !_gameEngine.GameState.IsGameOver && !_gameEngine.GameState.IsPaused)
-                        {
-                            if (!IsOppositeDirection(newDirection.Value, _gameEngine.GameState.Snake.CurrentDirection))
-                            {
-                                _gameEngine.GameState.Snake.NextDirection = newDirection.Value;
-                                e.Handled = true;
-                            }
-                        }
-                        
-                        // Pause/Unpause with Space or Escape
-                        if (key == Windows.System.VirtualKey.Space || key == Windows.System.VirtualKey.Escape)
-                        {
-                            if (_gameEngine != null && !_gameEngine.GameState.IsGameOver)
-                            {
-                                _gameEngine.TogglePause();
-                                UpdateUI();
-                                GameCanvas.Invalidate();
-                                e.Handled = true;
-                            }
-                        }
-                    };
-                }
-            });
-        }
+    // Initialize keyboard after page is loaded to ensure window is ready
+    this.Loaded += (s, e) =>
+    {
+        Platforms.Windows.KeyboardHelper.Initialize();
+        Platforms.Windows.KeyboardHelper.KeyPressed += OnWindowsKeyPressed;
+    };
+    
+    this.Unloaded += (s, e) =>
+    {
+        Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
+    };
 #endif
     }
+
+
+
+
+#if WINDOWS
+    private void OnWindowsKeyPressed(object sender, Windows.System.VirtualKey key)
+    {
+        if (_gameEngine == null) return;
+
+        // Handle direction keys (Arrow keys and WASD)
+        Direction? newDirection = key switch
+        {
+            Windows.System.VirtualKey.Left or Windows.System.VirtualKey.A => Direction.Left,
+            Windows.System.VirtualKey.Right or Windows.System.VirtualKey.D => Direction.Right,
+            Windows.System.VirtualKey.Up or Windows.System.VirtualKey.W => Direction.Up,
+            Windows.System.VirtualKey.Down or Windows.System.VirtualKey.S => Direction.Down,
+            _ => null
+        };
+
+        if (newDirection.HasValue && !_gameEngine.GameState.IsGameOver && !_gameEngine.GameState.IsPaused)
+        {
+            if (!IsOppositeDirection(newDirection.Value, _gameEngine.GameState.Snake.CurrentDirection))
+            {
+                Dispatcher.Dispatch(() =>
+                {
+                    _gameEngine.GameState.Snake.NextDirection = newDirection.Value;
+                });
+            }
+        }
+
+        // Handle pause/unpause with Space or Escape
+        if (key == Windows.System.VirtualKey.Space || key == Windows.System.VirtualKey.Escape)
+        {
+            if (!_gameEngine.GameState.IsGameOver)
+            {
+                Dispatcher.Dispatch(() =>
+                {
+                    _gameEngine.TogglePause();
+                    UpdateUI();
+                    GameCanvas.Invalidate();
+                });
+            }
+        }
+    }
+#endif
 
     private void OnCanvasSizeChanged(object sender, EventArgs e)
     {
@@ -308,6 +320,11 @@ public partial class GamePage : ContentPage
     protected override void OnDisappearing()
     {
         _gameTimer?.Stop();
+
+#if WINDOWS
+        Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
+#endif
+
         base.OnDisappearing();
     }
 }
