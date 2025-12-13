@@ -71,6 +71,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <MauiFont Update="Resources\Fonts\MaterialIconsRegular.ttf">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </MauiFont>
+	</ItemGroup>
+
+	<ItemGroup>
 	  <MauiXaml Update="Views\GamePage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>

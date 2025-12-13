@@ -217,7 +217,7 @@ public partial class HomePage : ContentPage
 
     private void UpdateSettingsDisplay()
     {
-        SettingsFooter.Text = $"Level: {_selectedDifficulty} | Mode: {_selectedGameMode} | Walls: {(_wallsEnabled ? "On" : "Off")} | Speed: {_speedLevel}";
+       SettingsFooter.Text = $"Level: {_selectedDifficulty} | Mode: {_selectedGameMode} | Walls: {(_wallsEnabled ? "On" : "Off")} | Speed: {_speedLevel}";
     }
 }
 

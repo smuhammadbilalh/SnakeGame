@@ -2,25 +2,45 @@
 <ContentPage x:Class="SnakeGame.Views.GamePage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              BackgroundColor="#0f172a"
+             NavigationPage.HasNavigationBar="False"
+             Shell.NavBarIsVisible="False"
              Title="Game">
 
-    <Grid>
-        <!-- Score Display -->
-        <Label x:Name="ScoreLabel"
-               Text="Score: 0"
-               FontSize="24"
-               FontAttributes="Bold"
-               TextColor="White"
-               HorizontalOptions="Start"
-               Margin="20,20,0,0" />
+    <ContentPage.Behaviors>
+        <!-- Transparent status bar with light icons for dark background -->
+        <toolkit:StatusBarBehavior StatusBarColor="Transparent" 
+                                   StatusBarStyle="LightContent" />
+    </ContentPage.Behaviors>
 
-        <!-- Game Canvas -->
+    <Grid RowDefinitions="Auto,Auto,*"
+          RowSpacing="0">
+
+        <!-- Score Display with Safe Area padding for notch/camera -->
+        <VerticalStackLayout Grid.Row="0"
+                            Padding="10,10,10,8"
+                           >
+
+            <Label x:Name="ScoreLabel"
+                   Text="Score: 0"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="White"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- Divider Line - Top boundary of game area -->
+        <BoxView Grid.Row="1"
+                 HeightRequest="1"
+                 HorizontalOptions="FillAndExpand" />
+
+        <!-- Game Canvas - Full Width, No Margins -->
         <GraphicsView x:Name="GameCanvas"
+                      Grid.Row="2"
                       BackgroundColor="#1e293b"
-                      HorizontalOptions="Fill"
-                      VerticalOptions="FillAndExpand"
-                      Margin="20" />
+                      HorizontalOptions="FillAndExpand"
+                      VerticalOptions="FillAndExpand" />
     </Grid>
 
 </ContentPage>

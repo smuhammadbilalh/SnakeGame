@@ -39,29 +39,24 @@ public partial class GamePage : ContentPage
     private void SetupKeyboardHandling()
     {
 #if WINDOWS
-    // Initialize keyboard after page is loaded to ensure window is ready
-    this.Loaded += (s, e) =>
-    {
-        Platforms.Windows.KeyboardHelper.Initialize();
-        Platforms.Windows.KeyboardHelper.KeyPressed += OnWindowsKeyPressed;
-    };
-    
-    this.Unloaded += (s, e) =>
-    {
-        Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
-    };
+        this.Loaded += (s, e) =>
+        {
+            Platforms.Windows.KeyboardHelper.Initialize();
+            Platforms.Windows.KeyboardHelper.KeyPressed += OnWindowsKeyPressed;
+        };
+        
+        this.Unloaded += (s, e) =>
+        {
+            Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
+        };
 #endif
     }
-
-
-
 
 #if WINDOWS
     private void OnWindowsKeyPressed(object sender, Windows.System.VirtualKey key)
     {
         if (_gameEngine == null) return;
 
-        // Handle direction keys (Arrow keys and WASD)
         Direction? newDirection = key switch
         {
             Windows.System.VirtualKey.Left or Windows.System.VirtualKey.A => Direction.Left,
@@ -82,7 +77,6 @@ public partial class GamePage : ContentPage
             }
         }
 
-        // Handle pause/unpause with Space or Escape
         if (key == Windows.System.VirtualKey.Space || key == Windows.System.VirtualKey.Escape)
         {
             if (!_gameEngine.GameState.IsGameOver)
@@ -109,12 +103,16 @@ public partial class GamePage : ContentPage
 
     private void InitializeGame()
     {
-        const int CELL_SIZE = 20;
+        // Ultra-small cell size for smooth Nokia-style movement (3 pixels per cell)
+        const int CELL_SIZE = 3;
+
+        // Calculate grid to show 100-200 cells on screen
         int gridWidth = (int)(GameCanvas.Width / CELL_SIZE);
         int gridHeight = (int)(GameCanvas.Height / CELL_SIZE);
 
-        gridWidth = Math.Max(15, gridWidth);
-        gridHeight = Math.Max(15, gridHeight);
+        // Ensure minimum grid size for good gameplay
+        gridWidth = Math.Max(100, gridWidth);
+        gridHeight = Math.Max(80, gridHeight);
 
         // Use level dimensions for Stages mode
         if (GameMode == SnakeGameMode.Stages)
@@ -122,8 +120,9 @@ public partial class GamePage : ContentPage
             var levels = Level.GetNokiaLevels();
             if (levels.Count > 0)
             {
-                gridWidth = levels[0].GridWidth;
-                gridHeight = levels[0].GridHeight;
+                // Scale level dimensions proportionally
+                gridWidth = levels[0].GridWidth * 4;
+                gridHeight = levels[0].GridHeight * 4;
             }
         }
 
@@ -151,15 +150,14 @@ public partial class GamePage : ContentPage
     {
         var baseSpeed = Difficulty switch
         {
-            GameDifficulty.Easy => 300,
-            GameDifficulty.Medium => 200,
-            GameDifficulty.Hard => 150,
-            _ => 200
+            GameDifficulty.Easy => 70,
+            GameDifficulty.Medium => 50,
+            GameDifficulty.Hard => 30,
+            _ => 80
         };
 
-        // Adjust by speed level
-        var adjustment = (SpeedLevel - 2) * 50;
-        return Math.Max(80, baseSpeed - adjustment);
+        var adjustment = (SpeedLevel - 2) * 15;
+        return Math.Max(30, baseSpeed - adjustment);
     }
 
     private void AddTapGesture()

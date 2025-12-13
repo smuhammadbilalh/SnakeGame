@@ -36,7 +36,10 @@ public class Snake
 
     public void Grow()
     {
+        // Grow by 3 segments instead of 1 for more visible growth
         var tail = Body[^1];
+        Body.Add(tail);
+        Body.Add(tail);
         Body.Add(tail);
     }
 

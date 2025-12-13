@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using Mopups.Hosting;
-using Plugin.Toolkit.Fonts.MaterialIcons;
 using SnakeGame.Services;
 
 
@@ -21,7 +20,8 @@ namespace SnakeGame
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-                    fonts.AddMaterialIconsFonts(); 
+                    fonts.AddFont("MaterialIconsRegular.ttf", "MaterialIcons");
+
 
                 });
 

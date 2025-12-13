@@ -9,6 +9,8 @@ public class GameDrawable : IDrawable
     private readonly GameEngine _gameEngine;
     private readonly float _cellSize;
     private readonly bool _gridEnabled;
+    private const int SNAKE_THICKNESS = 6; // Snake = 6 cells to match food diameter
+    private const int FOOD_RADIUS = 3; // Food radius = 3 cells (6 diameter)
 
     public GameDrawable(GameEngine gameEngine, float cellSize, bool gridEnabled = true)
     {
@@ -19,36 +21,31 @@ public class GameDrawable : IDrawable
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
-        canvas.FillColor = Color.FromRgb(15, 23, 42); // Dark background
+        canvas.FillColor = Color.FromRgb(15, 23, 42);
         canvas.FillRectangle(0, 0, dirtyRect.Width, dirtyRect.Height);
 
         var state = _gameEngine.GameState;
 
-        // Draw grid
-        if (_gridEnabled)
+        // Skip grid for ultra-fine cells
+        if (_gridEnabled && _cellSize >= 8)
         {
             DrawGrid(canvas, state.GridWidth, state.GridHeight);
         }
 
-        // Draw obstacles
         DrawObstacles(canvas, state.Obstacles);
 
-        // Draw Food
         if (state.CurrentFood != null)
         {
             DrawFood(canvas, state.CurrentFood);
         }
 
-        // Draw Snake
         DrawSnake(canvas, state.Snake);
 
-        // Draw pause overlay
         if (state.IsPaused)
         {
             DrawPauseOverlay(canvas, dirtyRect);
         }
 
-        // Draw Game Over overlay
         if (state.IsGameOver)
         {
             DrawGameOverOverlay(canvas, dirtyRect, state.Score);
@@ -57,7 +54,7 @@ public class GameDrawable : IDrawable
 
     private void DrawGrid(ICanvas canvas, int gridWidth, int gridHeight)
     {
-        canvas.StrokeColor = Color.FromRgba(255, 255, 255, 20);
+        canvas.StrokeColor = Color.FromRgba(255, 255, 255, 15);
         canvas.StrokeSize = 1;
 
         for (int x = 0; x <= gridWidth; x++)
@@ -73,86 +70,142 @@ public class GameDrawable : IDrawable
 
     private void DrawObstacles(ICanvas canvas, List<Position> obstacles)
     {
-        canvas.FillColor = Color.FromRgb(71, 85, 105); // Gray
+        canvas.FillColor = Color.FromRgb(71, 85, 105);
 
         foreach (var obstacle in obstacles)
         {
             var x = obstacle.X * _cellSize;
             var y = obstacle.Y * _cellSize;
-            canvas.FillRoundedRectangle(x + 1, y + 1, _cellSize - 2, _cellSize - 2, 3);
+            canvas.FillRectangle(x, y, _cellSize, _cellSize);
         }
     }
 
     private void DrawSnake(ICanvas canvas, Snake snake)
     {
+        // Snake thickness matches food diameter for perfect eating
+        var halfThickness = SNAKE_THICKNESS / 2.0f;
+
         for (int i = 0; i < snake.Body.Count; i++)
         {
             var segment = snake.Body[i];
-            var x = segment.X * _cellSize;
-            var y = segment.Y * _cellSize;
 
-            if (i == 0) // Head
+            // Center the snake segment
+            var centerX = (segment.X + 0.5f) * _cellSize;
+            var centerY = (segment.Y + 0.5f) * _cellSize;
+
+            var segmentSize = SNAKE_THICKNESS * _cellSize;
+            var segmentX = centerX - (halfThickness * _cellSize);
+            var segmentY = centerY - (halfThickness * _cellSize);
+
+            if (i == 0) // Head - same size as body for smooth eating
             {
-                canvas.FillColor = Color.FromRgb(52, 211, 153); // Bright green
-                canvas.FillRoundedRectangle(x + 1, y + 1, _cellSize - 2, _cellSize - 2, 6);
+                // Main head color - bright green
+                canvas.FillColor = Color.FromRgb(52, 211, 153);
+                canvas.FillRoundedRectangle(segmentX, segmentY, segmentSize, segmentSize, _cellSize * 1.5f);
 
-                // Draw eyes
+                // Draw eyes based on direction
                 canvas.FillColor = Colors.White;
-                var eyeSize = _cellSize / 6;
-                var eyeOffset = _cellSize / 3;
+                var eyeSize = _cellSize * 1.2f;
+                var eyeOffset = _cellSize * 1.5f;
 
-                if (snake.CurrentDirection == Direction.Right || snake.CurrentDirection == Direction.Left)
+                if (snake.CurrentDirection == Direction.Right)
                 {
-                    canvas.FillCircle(x + eyeOffset, y + eyeOffset, eyeSize);
-                    canvas.FillCircle(x + eyeOffset, y + _cellSize - eyeOffset, eyeSize);
+                    canvas.FillCircle(centerX + eyeOffset, centerY - eyeOffset * 0.5f, eyeSize);
+                    canvas.FillCircle(centerX + eyeOffset, centerY + eyeOffset * 0.5f, eyeSize);
+
+                    canvas.FillColor = Colors.Black;
+                    canvas.FillCircle(centerX + eyeOffset + _cellSize * 0.3f, centerY - eyeOffset * 0.5f, eyeSize * 0.5f);
+                    canvas.FillCircle(centerX + eyeOffset + _cellSize * 0.3f, centerY + eyeOffset * 0.5f, eyeSize * 0.5f);
                 }
-                else
+                else if (snake.CurrentDirection == Direction.Left)
                 {
-                    canvas.FillCircle(x + eyeOffset, y + eyeOffset, eyeSize);
-                    canvas.FillCircle(x + _cellSize - eyeOffset, y + eyeOffset, eyeSize);
+                    canvas.FillCircle(centerX - eyeOffset, centerY - eyeOffset * 0.5f, eyeSize);
+                    canvas.FillCircle(centerX - eyeOffset, centerY + eyeOffset * 0.5f, eyeSize);
+
+                    canvas.FillColor = Colors.Black;
+                    canvas.FillCircle(centerX - eyeOffset - _cellSize * 0.3f, centerY - eyeOffset * 0.5f, eyeSize * 0.5f);
+                    canvas.FillCircle(centerX - eyeOffset - _cellSize * 0.3f, centerY + eyeOffset * 0.5f, eyeSize * 0.5f);
+                }
+                else if (snake.CurrentDirection == Direction.Up)
+                {
+                    canvas.FillCircle(centerX - eyeOffset * 0.5f, centerY - eyeOffset, eyeSize);
+                    canvas.FillCircle(centerX + eyeOffset * 0.5f, centerY - eyeOffset, eyeSize);
+
+                    canvas.FillColor = Colors.Black;
+                    canvas.FillCircle(centerX - eyeOffset * 0.5f, centerY - eyeOffset - _cellSize * 0.3f, eyeSize * 0.5f);
+                    canvas.FillCircle(centerX + eyeOffset * 0.5f, centerY - eyeOffset - _cellSize * 0.3f, eyeSize * 0.5f);
+                }
+                else if (snake.CurrentDirection == Direction.Down)
+                {
+                    canvas.FillCircle(centerX - eyeOffset * 0.5f, centerY + eyeOffset, eyeSize);
+                    canvas.FillCircle(centerX + eyeOffset * 0.5f, centerY + eyeOffset, eyeSize);
+
+                    canvas.FillColor = Colors.Black;
+                    canvas.FillCircle(centerX - eyeOffset * 0.5f, centerY + eyeOffset + _cellSize * 0.3f, eyeSize * 0.5f);
+                    canvas.FillCircle(centerX + eyeOffset * 0.5f, centerY + eyeOffset + _cellSize * 0.3f, eyeSize * 0.5f);
                 }
             }
-            else // Body
+            else // Body segments
             {
-                var greenIntensity = 220 - (i * 5);
+                // Gradient color - darker towards tail
+                var greenIntensity = 220 - (i * 2);
                 canvas.FillColor = Color.FromRgb(16, Math.Max(100, greenIntensity), 129);
-                canvas.FillRoundedRectangle(x + 2, y + 2, _cellSize - 4, _cellSize - 4, 4);
+
+                // Rounded body segments
+                canvas.FillRoundedRectangle(segmentX, segmentY, segmentSize, segmentSize, _cellSize);
+
+                // Add highlight for 3D effect
+                if (i < snake.Body.Count / 2)
+                {
+                    canvas.FillColor = Color.FromRgba(255, 255, 255, 30);
+                    canvas.FillRoundedRectangle(segmentX + _cellSize, segmentY + _cellSize,
+                                               segmentSize * 0.3f, segmentSize * 0.3f, _cellSize * 0.5f);
+                }
             }
         }
     }
 
     private void DrawFood(ICanvas canvas, Food food)
     {
-        var foodX = food.Position.X * _cellSize + _cellSize / 2;
-        var foodY = food.Position.Y * _cellSize + _cellSize / 2;
-        var radius = _cellSize / 2 - 2;
+        // Food size matches snake thickness for smooth eating
+        var foodRadius = FOOD_RADIUS * _cellSize;
+        var foodX = (food.Position.X + 0.5f) * _cellSize; // Center on cell
+        var foodY = (food.Position.Y + 0.5f) * _cellSize;
 
         if (food.Type == FoodType.Bonus)
         {
-            // Bonus food - pulsing gold star
-            canvas.FillColor = Color.FromRgb(251, 191, 36); // Gold
-            DrawStar(canvas, foodX, foodY, radius, radius * 0.5f);
+            // Bonus food - large gold star
+            canvas.FillColor = Color.FromRgb(251, 191, 36);
+            DrawStar(canvas, foodX, foodY, foodRadius, foodRadius * 0.6f);
 
-            // Draw timer arc
+            // Shine effect
+            canvas.FillColor = Color.FromRgba(255, 255, 255, 150);
+            DrawStar(canvas, foodX - _cellSize, foodY - _cellSize, foodRadius * 0.4f, foodRadius * 0.25f);
+
+            // Timer arc
             var remaining = food.GetRemainingSeconds();
             if (remaining > 0)
             {
                 canvas.StrokeColor = Colors.Yellow;
-                canvas.StrokeSize = 2;
+                canvas.StrokeSize = 3;
                 var angle = (remaining / 5f) * 360;
-                canvas.DrawArc(food.Position.X * _cellSize, food.Position.Y * _cellSize,
-                              _cellSize, _cellSize, 0, angle, false, false);
+                canvas.DrawArc(foodX - foodRadius - 3, foodY - foodRadius - 3,
+                              (foodRadius + 3) * 2, (foodRadius + 3) * 2, 0, angle, false, false);
             }
         }
         else
         {
-            // Regular food - red apple
-            canvas.FillColor = Color.FromRgb(239, 68, 68); // Red
-            canvas.FillCircle(foodX, foodY, radius);
+            // Regular food - red circle (same diameter as snake thickness)
+            canvas.FillColor = Color.FromRgb(239, 68, 68);
+            canvas.FillCircle(foodX, foodY, foodRadius);
 
-            // Add shine
-            canvas.FillColor = Color.FromRgba(255, 255, 255, 128);
-            canvas.FillCircle(foodX - radius / 3, foodY - radius / 3, radius / 3);
+            // Shine effect - top-left
+            canvas.FillColor = Color.FromRgba(255, 255, 255, 180);
+            canvas.FillCircle(foodX - foodRadius * 0.3f, foodY - foodRadius * 0.3f, foodRadius * 0.4f);
+
+            // Secondary shine
+            canvas.FillColor = Color.FromRgba(255, 255, 255, 100);
+            canvas.FillCircle(foodX + foodRadius * 0.2f, foodY + foodRadius * 0.2f, foodRadius * 0.2f);
         }
     }
 
@@ -200,7 +253,7 @@ public class GameDrawable : IDrawable
         canvas.FillColor = Color.FromRgba(0, 0, 0, 200);
         canvas.FillRectangle(0, 0, dirtyRect.Width, dirtyRect.Height);
 
-        canvas.FontColor = Color.FromRgb(239, 68, 68); // Red
+        canvas.FontColor = Color.FromRgb(239, 68, 68);
         canvas.FontSize = 56;
         canvas.DrawString("GAME OVER", dirtyRect.Width / 2, dirtyRect.Height / 2 - 60,
                          HorizontalAlignment.Center);
