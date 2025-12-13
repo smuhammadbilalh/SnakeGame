@@ -1,17 +1,18 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using SnakeGame.Services;
+using SnakeGame.Views;
 
 namespace SnakeGame
 {
-   using SnakeGame.Views;
-
-public partial class App : Application
-{
-    public App()
+    public partial class App : Application
     {
-        InitializeComponent();
+        public App(IServiceProvider serviceProvider)
+        {
+            InitializeComponent();
 
-        MainPage = new NavigationPage(new HomePage());
+            // Get HomePage from DI container with AudioService injected
+            var homePage = serviceProvider.GetRequiredService<HomePage>();
+            MainPage = new NavigationPage(homePage);
+        }
     }
-}
-
 }

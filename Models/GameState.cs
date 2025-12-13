@@ -24,7 +24,7 @@ public class GameState
         GridHeight = gridHeight;
         Difficulty = difficulty;
         GameMode = gameMode;
-        WallsEnabled = wallsEnabled || gameMode != SnakeGameMode.NoWalls;
+        WallsEnabled = wallsEnabled || gameMode != SnakeGameMode.Classic;
 
         var startPos = new Position(gridWidth / 2, gridHeight / 2);
         Snake = new Snake(startPos);
@@ -34,13 +34,10 @@ public class GameState
         IsPaused = false;
         CurrentFood = null;
 
-        if (gameMode == SnakeGameMode.Stages)
+        // Generate walls for Complex mode
+        if (gameMode == SnakeGameMode.Complex)
         {
-            LoadLevel(1);
-        }
-        else if (gameMode == SnakeGameMode.Obstacles)
-        {
-            GenerateRandomObstacles();
+            GenerateComplexWalls();
         }
     }
 
@@ -57,29 +54,77 @@ public class GameState
 
     public bool CheckLevelCompletion()
     {
-        if (GameMode == SnakeGameMode.Stages && CurrentLevel != null)
-        {
-            return Score >= CurrentLevel.TargetScore;
-        }
         return false;
     }
 
-    private void GenerateRandomObstacles()
+
+    private void GenerateComplexWalls()
     {
-        var random = new Random();
-        int obstacleCount = (GridWidth * GridHeight) / 20;
+        Obstacles = new List<Position>();
 
-        for (int i = 0; i < obstacleCount; i++)
+        // Better proportions for all screen sizes
+        int margin = Math.Max(15, GridWidth / 10);  // Larger margin from edges
+        int wallLength = Math.Min(GridWidth, GridHeight) / 2;  // Longer walls
+        int gapSize = Math.Max(25, Math.Min(GridWidth, GridHeight) / 8);  // Larger gaps (proportional to screen)
+
+        // Calculate wall positions with proper margins
+        int topWallY = margin;
+        int bottomWallY = GridHeight - margin;
+        int leftWallX = margin;
+        int rightWallX = GridWidth - margin;
+
+        // Top wall (left side + right side with gap in middle)
+        int topWallStart = margin + 5;
+        int topWallEnd = GridWidth - margin - 5;
+        int topGapStart = (topWallStart + topWallEnd) / 2 - gapSize / 2;
+        int topGapEnd = topGapStart + gapSize;
+
+        for (int x = topWallStart; x < topGapStart; x++)
         {
-            Position pos;
-            do
-            {
-                pos = new Position(random.Next(2, GridWidth - 2), random.Next(2, GridHeight - 2));
-            } while (Obstacles.Contains(pos) || IsNearSnakeStart(pos));
+            Obstacles.Add(new Position(x, topWallY));
+        }
+        for (int x = topGapEnd; x < topWallEnd; x++)
+        {
+            Obstacles.Add(new Position(x, topWallY));
+        }
 
-            Obstacles.Add(pos);
+        // Bottom wall (left side + right side with gap in middle)
+        for (int x = topWallStart; x < topGapStart; x++)
+        {
+            Obstacles.Add(new Position(x, bottomWallY));
+        }
+        for (int x = topGapEnd; x < topWallEnd; x++)
+        {
+            Obstacles.Add(new Position(x, bottomWallY));
+        }
+
+        // Left wall (top side + bottom side with gap in middle)
+        int leftWallStart = margin + 5;
+        int leftWallEnd = GridHeight - margin - 5;
+        int leftGapStart = (leftWallStart + leftWallEnd) / 2 - gapSize / 2;
+        int leftGapEnd = leftGapStart + gapSize;
+
+        for (int y = leftWallStart; y < leftGapStart; y++)
+        {
+            Obstacles.Add(new Position(leftWallX, y));
+        }
+        for (int y = leftGapEnd; y < leftWallEnd; y++)
+        {
+            Obstacles.Add(new Position(leftWallX, y));
+        }
+
+        // Right wall (top side + bottom side with gap in middle)
+        for (int y = leftWallStart; y < leftGapStart; y++)
+        {
+            Obstacles.Add(new Position(rightWallX, y));
+        }
+        for (int y = leftGapEnd; y < leftWallEnd; y++)
+        {
+            Obstacles.Add(new Position(rightWallX, y));
         }
     }
+
+    
 
     private bool IsNearSnakeStart(Position pos)
     {

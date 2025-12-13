@@ -1,4 +1,4 @@
-using Microsoft.Maui.Graphics;
+﻿using Microsoft.Maui.Graphics;
 using SnakeGame.Drawables;
 using SnakeGame.Models;
 using SnakeGame.Services;
@@ -12,15 +12,18 @@ public partial class GamePage : ContentPage
     private GameDrawable _gameDrawable;
     private bool _isInitialized = false;
     private readonly HighScoreManager _highScoreManager;
+    private readonly AudioService _audioService;
 
     public GameDifficulty Difficulty { get; }
     public SnakeGameMode GameMode { get; }
     public bool WallsEnabled { get; }
     public int SpeedLevel { get; }
     public bool GridEnabled { get; }
+    public bool SoundEnabled { get; }
 
     public GamePage(GameDifficulty difficulty, SnakeGameMode gameMode = SnakeGameMode.Classic,
-                    bool wallsEnabled = true, int speedLevel = 2, bool gridEnabled = true)
+        bool wallsEnabled = true, int speedLevel = 2, bool gridEnabled = true,
+        bool soundEnabled = true, AudioService audioService = null)
     {
         InitializeComponent();
         Difficulty = difficulty;
@@ -28,12 +31,27 @@ public partial class GamePage : ContentPage
         WallsEnabled = wallsEnabled;
         SpeedLevel = speedLevel;
         GridEnabled = gridEnabled;
+        SoundEnabled = soundEnabled;
+        _audioService = audioService;
         _highScoreManager = new HighScoreManager();
 
-        GameCanvas.SizeChanged += OnCanvasSizeChanged;
+        // ⭐ DEBUG LINES
+        System.Diagnostics.Debug.WriteLine($"🎮 GamePage created");
+        System.Diagnostics.Debug.WriteLine($"🔊 SoundEnabled: {SoundEnabled}");
+        System.Diagnostics.Debug.WriteLine($"🎵 AudioService: {(_audioService != null ? "NOT NULL" : "NULL")}");
 
-        // Setup keyboard handling
+        GameCanvas.SizeChanged += OnCanvasSizeChanged;
         SetupKeyboardHandling();
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        // ⭐ CHANGED - Play background music instead of stopping it
+        if (SoundEnabled && _audioService != null)
+        {
+            await _audioService.PlayBackgroundMusicAsync();
+        }
     }
 
     private void SetupKeyboardHandling()
@@ -44,7 +62,6 @@ public partial class GamePage : ContentPage
             Platforms.Windows.KeyboardHelper.Initialize();
             Platforms.Windows.KeyboardHelper.KeyPressed += OnWindowsKeyPressed;
         };
-        
         this.Unloaded += (s, e) =>
         {
             Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
@@ -101,40 +118,39 @@ public partial class GamePage : ContentPage
         InitializeGame();
     }
 
+
     private void InitializeGame()
     {
-        // Ultra-small cell size for smooth Nokia-style movement (3 pixels per cell)
         const int CELL_SIZE = 3;
-
-        // Calculate grid to show 100-200 cells on screen
         int gridWidth = (int)(GameCanvas.Width / CELL_SIZE);
         int gridHeight = (int)(GameCanvas.Height / CELL_SIZE);
 
-        // Ensure minimum grid size for good gameplay
         gridWidth = Math.Max(100, gridWidth);
         gridHeight = Math.Max(80, gridHeight);
 
-        // Use level dimensions for Stages mode
-        if (GameMode == SnakeGameMode.Stages)
-        {
-            var levels = Level.GetNokiaLevels();
-            if (levels.Count > 0)
-            {
-                // Scale level dimensions proportionally
-                gridWidth = levels[0].GridWidth * 4;
-                gridHeight = levels[0].GridHeight * 4;
-            }
-        }
+        // ⭐ REMOVE THIS ENTIRE BLOCK:
+        // if (GameMode == SnakeGameMode.Stages)
+        // {
+        //     var levels = Level.GetNokiaLevels();
+        //     if (levels.Count > 0)
+        //     {
+        //         gridWidth = levels[0].GridWidth * 4;
+        //         gridHeight = levels[0].GridHeight * 4;
+        //     }
+        // }
 
         _gameEngine = new GameEngine(gridWidth, gridHeight, Difficulty, GameMode, WallsEnabled);
         _gameEngine.LevelCompleted += OnLevelCompleted;
         _gameEngine.GameOverEvent += OnGameOver;
+        _gameEngine.FoodEaten += OnFoodEaten;
+        _gameEngine.CollisionDetected += OnCollision;
+
+        System.Diagnostics.Debug.WriteLine("✅ Game engine initialized and events subscribed");
 
         _gameDrawable = new GameDrawable(_gameEngine, CELL_SIZE, GridEnabled);
         GameCanvas.Drawable = _gameDrawable;
 
         var interval = CalculateGameSpeed();
-
         _gameTimer = Dispatcher.CreateTimer();
         _gameTimer.Interval = TimeSpan.FromMilliseconds(interval);
         _gameTimer.Tick += OnGameTick;
@@ -144,7 +160,14 @@ public partial class GamePage : ContentPage
         AddTapGesture();
         UpdateUI();
         GameCanvas.Invalidate();
+
+        // Play game start sound
+        if (SoundEnabled && _audioService != null)
+        {
+            _ = _audioService.PlayGameStartAsync();
+        }
     }
+
 
     private int CalculateGameSpeed()
     {
@@ -155,7 +178,6 @@ public partial class GamePage : ContentPage
             GameDifficulty.Hard => 30,
             _ => 80
         };
-
         var adjustment = (SpeedLevel - 2) * 15;
         return Math.Max(30, baseSpeed - adjustment);
     }
@@ -234,7 +256,6 @@ public partial class GamePage : ContentPage
     private async void OnLevelCompleted(object sender, EventArgs e)
     {
         _gameTimer.Stop();
-
         var result = await DisplayAlert("Level Complete!",
             $"Congratulations! You completed Level {_gameEngine.GameState.CurrentLevelNumber}\nScore: {_gameEngine.GameState.Score}",
             "Next Level", "Quit");
@@ -250,9 +271,57 @@ public partial class GamePage : ContentPage
         }
     }
 
+    private async void OnFoodEaten(object sender, FoodType foodType)
+    {
+        System.Diagnostics.Debug.WriteLine($"🍎 OnFoodEaten called! Type: {foodType}");
+
+        if (!SoundEnabled || _audioService == null)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ Sound blocked - SoundEnabled: {SoundEnabled}, AudioService: {(_audioService != null ? "NOT NULL" : "NULL")}");
+            return;
+        }
+
+        if (foodType == FoodType.Regular)
+        {
+            System.Diagnostics.Debug.WriteLine("🎵 Playing normal food sound...");
+            await _audioService.PlayNormalFoodEatenAsync();
+        }
+        else if (foodType == FoodType.Bonus)
+        {
+            System.Diagnostics.Debug.WriteLine("🎵 Playing bonus food sound...");
+            await _audioService.PlayBonusFoodSpawnAsync();
+        }
+    }
+
+    private async void OnCollision(object sender, EventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine("💥 OnCollision called!");
+
+        if (!SoundEnabled || _audioService == null)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ Collision sound blocked - SoundEnabled: {SoundEnabled}, AudioService: {(_audioService != null ? "NOT NULL" : "NULL")}");
+            return;
+        }
+
+        System.Diagnostics.Debug.WriteLine("🎵 Playing collision sound...");
+        await _audioService.PlayCollisionAsync();
+    }
+
     private async void OnGameOver(object sender, EventArgs e)
     {
         _gameTimer.Stop();
+
+        System.Diagnostics.Debug.WriteLine("💀 OnGameOver called!");
+
+        if (SoundEnabled && _audioService != null)
+        {
+            System.Diagnostics.Debug.WriteLine("🎵 Playing game over sound...");
+            await _audioService.PlayGameOverAsync();
+        }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ GameOver sound blocked - SoundEnabled: {SoundEnabled}, AudioService: {(_audioService != null ? "NOT NULL" : "NULL")}");
+        }
 
         if (_highScoreManager.IsHighScore(_gameEngine.GameState.Score, GameMode))
         {
@@ -296,16 +365,13 @@ public partial class GamePage : ContentPage
         }
     }
 
+
     private void UpdateUI()
     {
         var state = _gameEngine.GameState;
         var scoreText = $"Score: {state.Score}";
 
-        if (GameMode == SnakeGameMode.Stages && state.CurrentLevel != null)
-        {
-            scoreText += $" | Level {state.CurrentLevelNumber}: {state.CurrentLevel.Name}";
-            scoreText += $" | Target: {state.CurrentLevel.TargetScore}";
-        }
+      
 
         if (state.IsPaused)
         {
@@ -315,14 +381,18 @@ public partial class GamePage : ContentPage
         ScoreLabel.Text = scoreText;
     }
 
+
     protected override void OnDisappearing()
     {
         _gameTimer?.Stop();
 
-#if WINDOWS
-        Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
-#endif
+        // ⭐ ADD THIS - Stop background music when leaving game
+        _audioService?.StopBackgroundMusic();
 
+#if WINDOWS
+    Platforms.Windows.KeyboardHelper.KeyPressed -= OnWindowsKeyPressed;
+#endif
         base.OnDisappearing();
     }
+
 }

@@ -7,10 +7,11 @@ public class GameEngine
     public GameState GameState { get; private set; }
     private readonly Random _random = new();
 
-    // Visual sizes for accurate collision detection
-    private const int SNAKE_RADIUS = 3; // Snake spans 6 cells (3 radius)
-    private const int FOOD_RADIUS = 3;  // Food spans 6 cells (3 radius)
+    private const int SNAKE_RADIUS = 3;
+    private const int FOOD_RADIUS = 3;
 
+    public event EventHandler<FoodType>? FoodEaten;
+    public event EventHandler? CollisionDetected;
     public event EventHandler? LevelCompleted;
     public event EventHandler? GameOverEvent;
 
@@ -27,20 +28,28 @@ public class GameEngine
 
         GameState.Snake.Move();
 
-        // Check collisions based on game mode
-        if (GameState.WallsEnabled && HasCollisionWithWalls())
+        // Handle based on game mode
+        if (GameState.GameMode == SnakeGameMode.Walls)
         {
-            EndGame();
-            return;
+            // Die if hit walls
+            if (HasCollisionWithWalls())
+            {
+                EndGame();
+                return;
+            }
         }
-
-        // Wrap around if walls disabled (NoWalls mode)
-        if (!GameState.WallsEnabled)
+        else if (GameState.GameMode == SnakeGameMode.Classic)
         {
+            // Wrap around
+            WrapSnakePosition();
+        }
+        else if (GameState.GameMode == SnakeGameMode.Complex)
+        {
+            // Allow wrap around but check obstacle collision
             WrapSnakePosition();
         }
 
-        // Check obstacle collision
+        // Check obstacle collision (for Complex mode)
         if (HasCollisionWithObstacles())
         {
             EndGame();
@@ -57,7 +66,6 @@ public class GameEngine
         HandleFoodCollision();
         HandleBonusExpiration();
 
-        // Check level completion
         if (GameState.CheckLevelCompletion())
         {
             LevelCompleted?.Invoke(this, EventArgs.Empty);
@@ -70,16 +78,12 @@ public class GameEngine
         if (GameState.CurrentLevelNumber < levels.Count)
         {
             GameState.LoadLevel(GameState.CurrentLevelNumber + 1);
-
-            // Reset snake to center
             var startPos = new Position(GameState.GridWidth / 2, GameState.GridHeight / 2);
             GameState.Snake = new Snake(startPos);
-
             SpawnFood();
         }
         else
         {
-            // Game completed all levels
             EndGame();
         }
     }
@@ -92,6 +96,7 @@ public class GameEngine
     private void EndGame()
     {
         GameState.IsGameOver = true;
+        CollisionDetected?.Invoke(this, EventArgs.Empty);
         GameOverEvent?.Invoke(this, EventArgs.Empty);
     }
 
@@ -112,8 +117,6 @@ public class GameEngine
     private bool HasCollisionWithWalls()
     {
         var head = GameState.Snake.Head;
-
-        // Check with radius offset for thick snake
         return head.X - SNAKE_RADIUS < 0 ||
                head.Y - SNAKE_RADIUS < 0 ||
                head.X + SNAKE_RADIUS >= GameState.GridWidth ||
@@ -123,20 +126,16 @@ public class GameEngine
     private bool HasCollisionWithObstacles()
     {
         var head = GameState.Snake.Head;
-
         foreach (var obstacle in GameState.Obstacles)
         {
-            // Check if snake head overlaps with obstacle (within radius)
             var dx = Math.Abs(head.X - obstacle.X);
             var dy = Math.Abs(head.Y - obstacle.Y);
 
-            // If within radius, collision detected
             if (dx <= SNAKE_RADIUS && dy <= SNAKE_RADIUS)
             {
                 return true;
             }
         }
-
         return false;
     }
 
@@ -145,23 +144,21 @@ public class GameEngine
         if (GameState.CurrentFood == null)
             return;
 
-        // Circle-based collision: check if snake head overlaps with food
         var head = GameState.Snake.Head;
         var food = GameState.CurrentFood.Position;
 
-        // Calculate distance between centers
         var dx = head.X - food.X;
         var dy = head.Y - food.Y;
         var distanceSquared = dx * dx + dy * dy;
 
-        // Combined radius for collision (if any pixel touches, eat the food)
         var collisionRadius = SNAKE_RADIUS + FOOD_RADIUS;
         var collisionRadiusSquared = collisionRadius * collisionRadius;
 
-        // If circles overlap, eat the food
         if (distanceSquared <= collisionRadiusSquared)
         {
             GameState.Snake.Grow();
+
+            FoodEaten?.Invoke(this, GameState.CurrentFood.Type);
 
             if (GameState.CurrentFood.Type == FoodType.Regular)
             {
@@ -193,7 +190,6 @@ public class GameEngine
     {
         var type = FoodType.Regular;
 
-        // Every 5 regular foods, spawn a bonus
         if (GameState.RegularDotsEaten > 0 && GameState.RegularDotsEaten % 5 == 0)
         {
             type = FoodType.Bonus;
@@ -223,7 +219,6 @@ public class GameEngine
             var dx = Math.Abs(segment.X - position.X);
             var dy = Math.Abs(segment.Y - position.Y);
 
-            // Check if food would overlap with snake body
             if (dx < SNAKE_RADIUS + FOOD_RADIUS && dy < SNAKE_RADIUS + FOOD_RADIUS)
                 return true;
         }
@@ -236,7 +231,6 @@ public class GameEngine
         {
             var dx = Math.Abs(obstacle.X - position.X);
             var dy = Math.Abs(obstacle.Y - position.Y);
-
             if (dx < FOOD_RADIUS * 2 && dy < FOOD_RADIUS * 2)
                 return true;
         }
@@ -245,12 +239,10 @@ public class GameEngine
 
     private bool IsTooCloseToSnakeHead(Position position)
     {
-        // Make sure food doesn't spawn too close to snake head
         var head = GameState.Snake.Head;
         var dx = Math.Abs(head.X - position.X);
         var dy = Math.Abs(head.Y - position.Y);
 
-        // Food should be at least 10 cells away from snake head for fair gameplay
         return dx < 10 || dy < 10;
     }
 }

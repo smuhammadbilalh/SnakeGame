@@ -1,6 +1,7 @@
 ﻿using SnakeGame.Models;
 using Mopups.Services;
 using System.Collections.ObjectModel;
+using SnakeGame.Services;
 
 namespace SnakeGame.Views;
 
@@ -14,12 +15,27 @@ public partial class HomePage : ContentPage
     private bool _soundEnabled = true;
     private bool _gridEnabled = true;
 
-    public HomePage()
+    private readonly AudioService _audioService;
+
+    public HomePage(AudioService audioService)
     {
         InitializeComponent();
+        _audioService = audioService;
         InitializeMenuItems();
         MenuCollection.ItemsSource = _menuItems;
         UpdateSettingsDisplay();
+    }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await _audioService.PlayBackgroundMusicAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _audioService.StopBackgroundMusic();
     }
 
     private void InitializeMenuItems()
@@ -46,7 +62,7 @@ public partial class HomePage : ContentPage
             {
                 IconGlyph = "\ue30e", // gamepad
                 Title = "Game Mode",
-                Description = "Classic, Survival, Stages",
+                Description = "Classic, Walls, Complex",
                 CurrentValue = "Classic",
                 Type = MenuType.GameMode
             },
@@ -77,12 +93,15 @@ public partial class HomePage : ContentPage
             switch (selected.Type)
             {
                 case MenuType.StartGame:
-                    await Navigation.PushAsync(new GamePage(
+                    var gamePage = new GamePage(
                         _selectedDifficulty,
                         _selectedGameMode,
                         _wallsEnabled,
                         _speedLevel,
-                        _gridEnabled));
+                        _gridEnabled,
+                        _soundEnabled,
+                        _audioService);
+                    await Navigation.PushAsync(gamePage);
                     break;
                 case MenuType.Level:
                     await ShowLevelDialog();
@@ -125,11 +144,9 @@ public partial class HomePage : ContentPage
     {
         var options = new List<SelectionPopup.OptionItem>
         {
-            new() { IconGlyph = "\ue338", Text = "Classic", Value = SnakeGameMode.Classic },
-            new() { IconGlyph = "\uf197", Text = "Survival", Value = SnakeGameMode.Survival },
-            new() { IconGlyph = "\uf8e6", Text = "Stages (Campaign)", Value = SnakeGameMode.Stages },
-            new() { IconGlyph = "\ue028", Text = "Without Walls", Value = SnakeGameMode.NoWalls },
-            new() { IconGlyph = "\ue3be", Text = "With Obstacles", Value = SnakeGameMode.Obstacles }
+            new() { IconGlyph = "\ue338", Text = "Classic - No Walls", Value = SnakeGameMode.Classic },
+            new() { IconGlyph = "\ue14a", Text = "Walls - Boundary", Value = SnakeGameMode.Walls },
+            new() { IconGlyph = "\ue3be", Text = "Complex - Walls with Gaps", Value = SnakeGameMode.Complex }
         };
 
         var popup = new SelectionPopup("Select Game Mode", options);
@@ -139,8 +156,9 @@ public partial class HomePage : ContentPage
         if (popup.SelectedValue is SnakeGameMode mode)
         {
             _selectedGameMode = mode;
-            _wallsEnabled = mode != SnakeGameMode.NoWalls;
-            _menuItems[2].CurrentValue = mode.ToString();
+            _wallsEnabled = mode != SnakeGameMode.Classic;
+            _menuItems[2].CurrentValue = mode == SnakeGameMode.Classic ? "Classic" :
+                                          mode == SnakeGameMode.Walls ? "Walls" : "Complex";
             UpdateSettingsDisplay();
         }
     }
@@ -150,11 +168,11 @@ public partial class HomePage : ContentPage
         var options = new List<SelectionPopup.OptionItem>
         {
             new() { IconGlyph = _soundEnabled ? "\ue050" : "\ue04f",
-                   Text = $"Sound: {(_soundEnabled ? "ON" : "OFF")}",
-                   Value = "sound" },
+                Text = $"Sound: {(_soundEnabled ? "ON" : "OFF")}",
+                Value = "sound" },
             new() { IconGlyph = _gridEnabled ? "\ue3ec" : "\ue3eb",
-                   Text = $"Grid: {(_gridEnabled ? "ON" : "OFF")}",
-                   Value = "grid" },
+                Text = $"Grid: {(_gridEnabled ? "ON" : "OFF")}",
+                Value = "grid" },
             new() { IconGlyph = "\ue9e4", Text = "Speed Settings", Value = "speed" },
             new() { IconGlyph = "\ue40a", Text = "Theme", Value = "theme" }
         };
@@ -169,6 +187,7 @@ public partial class HomePage : ContentPage
             {
                 case "sound":
                     _soundEnabled = !_soundEnabled;
+                    _audioService.SetSoundEnabled(_soundEnabled);
                     break;
                 case "grid":
                     _gridEnabled = !_gridEnabled;
@@ -217,7 +236,7 @@ public partial class HomePage : ContentPage
 
     private void UpdateSettingsDisplay()
     {
-       SettingsFooter.Text = $"Level: {_selectedDifficulty} | Mode: {_selectedGameMode} | Walls: {(_wallsEnabled ? "On" : "Off")} | Speed: {_speedLevel}";
+        SettingsFooter.Text = $"Level: {_selectedDifficulty} | Mode: {_selectedGameMode} | Walls: {(_wallsEnabled ? "On" : "Off")} | Speed: {_speedLevel}";
     }
 }
 
